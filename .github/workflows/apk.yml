@@ -30,10 +30,13 @@ jobs:
         run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
       - name: APK adını düzenle
         run: cp android/app/build/outputs/apk/debug/app-debug.apk sayi-dogrusu.apk
+      - name: Sürüm etiketi
+        id: ver
+        run: echo "tag=v$(node -p "require('./version.json').version")" >> "$GITHUB_OUTPUT"
       - name: Release'e yükle
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
-          name: Sayı Doğrusu ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || steps.ver.outputs.tag }}
+          name: Sayı Doğrusu ${{ github.ref_type == 'tag' && github.ref_name || steps.ver.outputs.tag }}
           files: sayi-dogrusu.apk
           make_latest: true

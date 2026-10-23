@@ -1,6 +1,6 @@
 {
   "name": "sayi-dogrusu",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Ortaokul için doğal, tam ve rasyonel sayılarla etkileşimli sayı doğrusu",
   "scripts": {

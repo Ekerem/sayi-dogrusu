@@ -96,8 +96,8 @@ form.add button{border:0;background:var(--accent);color:var(--accent-ink);border
 .eq{color:var(--muted);font-weight:700;margin:0 2px}
 
 /* Bildirim ve iletişim kutusu */
-.toast{position:fixed;left:50%;bottom:calc(90px + env(safe-area-inset-bottom, 0px));transform:translateX(-50%);background:var(--ink);color:var(--paper);padding:10px 16px;border-radius:12px;font-weight:800;z-index:50;display:flex;gap:12px;align-items:center;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
-.toast button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:8px;padding:4px 10px;font-weight:800}
+.toast{position:absolute;right:10px;top:8px;background:var(--ink);color:var(--paper);padding:6px 10px;border-radius:9px;font-weight:700;font-size:.82rem;z-index:5;display:flex;gap:8px;align-items:center;box-shadow:var(--shadow);max-width:min(340px, calc(100% - 20px));opacity:.94;pointer-events:auto}
+.toast button{border:0;background:var(--accent);color:var(--accent-ink);border-radius:7px;padding:2px 8px;font-weight:800;font-size:.8rem}
 .modal{position:fixed;inset:0;background:rgba(10,15,30,.45);display:flex;align-items:center;justify-content:center;z-index:60;padding:16px}
 .modal .box{background:var(--surface);border-radius:16px;padding:20px;max-width:380px;width:100%;box-shadow:var(--shadow)}
 .modal h2{font-family:var(--f-display);margin:0 0 6px;font-size:1.35rem}
@@ -186,6 +186,7 @@ form.add button{border:0;background:var(--accent);color:var(--accent-ink);border
 <div class="stage" id="stage">
   <canvas id="cv" aria-label="Sayı doğrusu" role="img"></canvas>
   <div class="scale-info" id="scaleInfo"></div>
+  <div class="toast" id="toast" hidden></div>
   <div class="hint" id="hint">Sürükle: kaydır · Tekerlek / iki parmak: yakınlaş · Doğruya dokun: işaretle</div>
 </div>
 
@@ -201,12 +202,11 @@ form.add button{border:0;background:var(--accent);color:var(--accent-ink);border
 </section>
 
 <div class="sig">Made by Us</div>
-<div class="toast" id="toast" hidden></div>
 <div class="modal" id="modal" hidden><div class="box"><h2 id="mTitle"></h2><p id="mText"></p><div class="row" id="mRow"></div></div></div>
 
 <script>
 "use strict";
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.0.1';
 const PAGES_URL = 'https://ekerem.github.io/sayi-dogrusu/';
 const QS = new URLSearchParams(location.search);
 const APK_BUILD = parseInt(QS.get('app') || '0', 10) || 0;
@@ -285,7 +285,7 @@ function fracParts(f, simplify, mixed) {
 
 /* ---------- Durum ---------- */
 const S = { mode: 'rasyonel', tool: 'mark', showFrac: true, showDec: false, simplify: false, mixed: false, div: 10, order: true };
-const V = { c: 0, s: 80 };
+const V = { c: 0, s: 80, y: 0 };  // y: doğrunun dikey kaydırması (px)
 let W = 0, H = 0, DPR = 1, sized = false;
 let marks = []; let nextId = 1;
 let lens = [];   // [{S,Q,N,born}]
@@ -438,9 +438,12 @@ function block(rows, sz, col) {
 function linesLayout() {
   const n = lens.length;
   const xl = Math.max(36, W * 0.06), xr = W - xl;
-  if (!n) return { mainY: Math.round(Math.max(150, H * 0.56)), lensY: [], xl, xr };
-  const mainY = Math.min(Math.round(H * 0.42), 150);
-  const gap = Math.max(110, Math.min(175, (H - mainY - 60) / n));
+  const base = n ? Math.min(Math.round(H * 0.42), 150) : Math.round(Math.max(150, H * 0.56));
+  const gap = n ? Math.max(110, Math.min(175, (H - base - 60) / n)) : 0;
+  // dikey kaydırma: doğru ekranın içinde kalsın
+  const lo = 60 - base, hi = Math.max(lo, H - 60 - base - gap * n);
+  V.y = Math.max(lo, Math.min(V.y, hi));
+  const mainY = Math.round(base + V.y);
   return { mainY, lensY: lens.map((_, i) => Math.round(mainY + gap * (i + 1))), xl, xr };
 }
 
@@ -740,7 +743,7 @@ cv.addEventListener('pointerdown', e => {
   cv.setPointerCapture(e.pointerId);
   ptrs.set(e.pointerId, { x: e.offsetX, y: e.offsetY });
   anim = null;
-  if (ptrs.size === 1) gest = { x0: e.offsetX, y0: e.offsetY, c0: V.c, moved: false, t0: performance.now(), multi: false };
+  if (ptrs.size === 1) gest = { x0: e.offsetX, y0: e.offsetY, c0: V.c, vy0: V.y, moved: false, t0: performance.now(), multi: false };
   else if (ptrs.size === 2) { gest && (gest.multi = true); pinchPrev = pinchInfo(); }
 });
 let pinchPrev = null;
@@ -757,7 +760,7 @@ cv.addEventListener('pointermove', e => {
   if (gest && ptrs.size === 1 && !gest.multi) {
     const dx = e.offsetX - gest.x0;
     if (Math.abs(dx) > 7 || Math.abs(e.offsetY - gest.y0) > 7) gest.moved = true;
-    if (gest.moved) { V.c = gest.c0 - dx / V.s; clampView(); draw(); }
+    if (gest.moved) { V.c = gest.c0 - dx / V.s; V.y = gest.vy0 + (e.offsetY - gest.y0); clampView(); draw(); }
   }
 });
 function endPtr(e) {
@@ -767,7 +770,7 @@ function endPtr(e) {
   if (ptrs.size === 0 && gest) {
     if (!gest.moved && !gest.multi && e.type === 'pointerup' && performance.now() - gest.t0 < 700) tap(e.offsetX, e.offsetY);
     gest = null;
-  } else if (ptrs.size === 1 && gest) { const [p] = ptrs.values(); gest.x0 = p.x; gest.c0 = V.c; }
+  } else if (ptrs.size === 1 && gest) { const [p] = ptrs.values(); gest.x0 = p.x; gest.y0 = p.y; gest.c0 = V.c; gest.vy0 = V.y; }
 }
 cv.addEventListener('pointerup', endPtr); cv.addEventListener('pointercancel', endPtr);
 cv.addEventListener('wheel', e => {
@@ -826,7 +829,7 @@ const pan = dir => animateTo(V.c + dir * (W * 0.35) / V.s, V.s, 350);
 const zoomBtn = k => animateTo(V.c, V.s * k, 350);
 $('bLeft').onclick = () => pan(-1); $('bRight').onclick = () => pan(1);
 $('bIn').onclick = () => zoomBtn(1.7); $('bOut').onclick = () => zoomBtn(1 / 1.7);
-$('bHome').onclick = () => { lens = []; lensChanged(); resetView(true); };
+$('bHome').onclick = () => { lens = []; V.y = 0; lensChanged(); resetView(true); };
 $('z1').onclick = () => { setDiv(10); fitRange(-0.08, 1.08); };
 $('z01').onclick = () => { setDiv(10); fitRange(-0.008, 0.108); };
 $('z001').onclick = () => { setDiv(10); fitRange(-0.0008, 0.0108); };
@@ -877,7 +880,7 @@ let toastTimer = 0;
 function toast(msg, actLabel, act) {
   const t = $('toast'); t.innerHTML = ''; const sp = document.createElement('span'); sp.textContent = msg; t.appendChild(sp);
   if (actLabel) { const b = document.createElement('button'); b.textContent = actLabel; b.onclick = () => { act(); t.hidden = true; }; t.appendChild(b); }
-  t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, actLabel ? 5000 : 3200);
+  t.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => t.hidden = true, actLabel ? 4000 : 2500);
 }
 function dialog(title, text, buttons) {
   $('mTitle').textContent = title; $('mText').textContent = text; const row = $('mRow'); row.innerHTML = '';
