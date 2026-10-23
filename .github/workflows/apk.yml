@@ -17,7 +17,8 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: android-actions/setup-android@v3
+      - name: Android SDK (runner'da hazır)
+        run: echo "sdk.dir=$ANDROID_HOME" && ls "$ANDROID_HOME"
       - name: Bağımlılıklar
         run: npm install
       - name: Web dosyaları
