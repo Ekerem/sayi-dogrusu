@@ -1,0 +1,13 @@
+{
+  "appId": "com.madebyus.sayidogrusu",
+  "appName": "Sayı Doğrusu",
+  "webDir": "www",
+  "server": {
+    "url": "https://ekerem.github.io/sayi-dogrusu/?app=1",
+    "errorPath": "index.html",
+    "androidScheme": "https"
+  },
+  "android": {
+    "appendUserAgent": "MadeByUsAPK"
+  }
+}

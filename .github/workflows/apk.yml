@@ -1,0 +1,38 @@
+name: APK
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: android-actions/setup-android@v3
+      - name: Bağımlılıklar
+        run: npm install
+      - name: Web dosyaları
+        run: npm run build:web
+      - name: Android projesi
+        run: npx cap add android && npx cap sync android
+      - name: APK derle
+        working-directory: android
+        run: chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - name: APK adını düzenle
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk sayi-dogrusu.apk
+      - name: Release'e yükle
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
+          name: Sayı Doğrusu ${{ github.ref_type == 'tag' && github.ref_name || 'v1.0.0' }}
+          files: sayi-dogrusu.apk
+          make_latest: true
